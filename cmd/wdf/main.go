@@ -5,82 +5,139 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
 	"time"
 
-	"wdf/internal/scanner"
-	"wdf/report"
+	"github.com/Jason-0902/wdf/internal/scanner"
+	"github.com/Jason-0902/wdf/report"
 )
 
 func main() {
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("wdf", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+
 	var (
-		targetURL   = flag.String("u", "", "target URL to scan (e.g. https://example.com)")
-		listPath    = flag.String("l", "", "path to file containing list of target URLs (one per line)")
-		concurrency = flag.Int("concurrency", 20, "max concurrent requests")
-		timeoutSec  = flag.Int("timeout", 10, "request timeout in seconds")
-		outputPath  = flag.String("output", "", "write results JSON to this file (default: stdout)")
+		targetURL string
+		listPath  string
+		output    string
 
-		enableRobots  = flag.Bool("enable-robots", false, "enable robots.txt discovery (disabled by default)")
-		enableSitemap = flag.Bool("enable-sitemap", false, "enable sitemap.xml discovery (disabled by default)")
-		enableCrawl   = flag.Bool("enable-crawl", false, "enable lightweight same-origin HTML discovery (disabled by default)")
-		crawlDepth    = flag.Int("crawl-depth", 2, "crawler depth (max 2)")
-		crawlLimit    = flag.Int("crawl-limit", 20, "max pages fetched per target during crawling")
+		concurrency int
+		timeoutSec  int
+
+		enableRobots  bool
+		enableSitemap bool
+		enableCrawl   bool
+		crawlDepth    int
+		crawlLimit    int
+
+		showVersion bool
+		showHelp    bool
 	)
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "wdf: web-dork-fuzzer (defensive exposure scanner)\n\n")
-		fmt.Fprintf(os.Stderr, "Use only on systems you own or where you have explicit authorization.\n\n")
-		flag.PrintDefaults()
-	}
-	flag.Parse()
 
-	if *targetURL == "" && *listPath == "" {
-		fmt.Fprintln(os.Stderr, "error: must provide -u or -l")
-		os.Exit(2)
-	}
-	if *targetURL != "" && *listPath != "" {
-		fmt.Fprintln(os.Stderr, "error: provide only one of -u or -l")
-		os.Exit(2)
-	}
-	if *concurrency <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --concurrency must be > 0")
-		os.Exit(2)
-	}
-	if *timeoutSec <= 0 {
-		fmt.Fprintln(os.Stderr, "error: --timeout must be > 0")
-		os.Exit(2)
-	}
-	if *crawlDepth < 0 {
-		fmt.Fprintln(os.Stderr, "error: --crawl-depth must be >= 0")
-		os.Exit(2)
-	}
-	if *crawlLimit < 0 {
-		fmt.Fprintln(os.Stderr, "error: --crawl-limit must be >= 0")
-		os.Exit(2)
+	fs.StringVar(&targetURL, "u", "", "target URL to scan (e.g. https://example.com)")
+	fs.StringVar(&targetURL, "url", "", "target URL to scan (e.g. https://example.com)")
+	fs.StringVar(&listPath, "l", "", "path to file containing list of target URLs (one per line)")
+	fs.StringVar(&listPath, "list", "", "path to file containing list of target URLs (one per line)")
+	fs.IntVar(&concurrency, "concurrency", 20, "max concurrent requests")
+	fs.IntVar(&timeoutSec, "timeout", 10, "request timeout in seconds")
+	fs.StringVar(&output, "output", "", "write results JSON to this file (default: stdout)")
+
+	fs.BoolVar(&enableRobots, "enable-robots", false, "enable robots.txt discovery (disabled by default)")
+	fs.BoolVar(&enableSitemap, "enable-sitemap", false, "enable sitemap.xml discovery (disabled by default)")
+	fs.BoolVar(&enableCrawl, "enable-crawl", false, "enable lightweight same-origin HTML discovery (disabled by default)")
+	fs.IntVar(&crawlDepth, "crawl-depth", 2, "crawler depth (max 2)")
+	fs.IntVar(&crawlLimit, "crawl-limit", 20, "max pages fetched per target during crawling")
+
+	fs.BoolVar(&showVersion, "version", false, "print version and exit")
+	fs.BoolVar(&showHelp, "h", false, "show help")
+	fs.BoolVar(&showHelp, "help", false, "show help")
+
+	fs.Usage = func() {
+		fmt.Fprintf(stderr, "wdf (Web Dork Fuzzer)\n")
+		fmt.Fprintf(stderr, "Defensive exposure scanner for crawlable and search-indexed sensitive web content.\n\n")
+		fmt.Fprintf(stderr, "Usage:\n")
+		fmt.Fprintf(stderr, "  wdf -u https://example.com [flags]\n")
+		fmt.Fprintf(stderr, "  wdf -l targets.txt [flags]\n\n")
+		fmt.Fprintf(stderr, "Examples:\n")
+		fmt.Fprintf(stderr, "  wdf -u https://example.com --concurrency 20 --timeout 10 --output results.json\n")
+		fmt.Fprintf(stderr, "  wdf -l targets.txt --enable-robots --enable-sitemap\n")
+		fmt.Fprintf(stderr, "  wdf --version\n\n")
+		fmt.Fprintf(stderr, "Flags:\n")
+		fs.PrintDefaults()
 	}
 
-	targets, err := loadTargets(*targetURL, *listPath)
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(stderr, "error: %v\n\n", err)
+		fs.Usage()
+		return 2
+	}
+
+	if showHelp {
+		fs.Usage()
+		return 0
+	}
+	if showVersion {
+		fmt.Fprintf(stdout, "wdf %s\n", version)
+		return 0
+	}
+
+	if targetURL == "" && listPath == "" {
+		fmt.Fprintln(stderr, "error: must provide -u/--url or -l/--list")
+		fmt.Fprintln(stderr)
+		fs.Usage()
+		return 2
+	}
+	if targetURL != "" && listPath != "" {
+		fmt.Fprintln(stderr, "error: provide only one of -u/--url or -l/--list")
+		fmt.Fprintln(stderr)
+		fs.Usage()
+		return 2
+	}
+	if concurrency <= 0 {
+		fmt.Fprintln(stderr, "error: --concurrency must be > 0")
+		return 2
+	}
+	if timeoutSec <= 0 {
+		fmt.Fprintln(stderr, "error: --timeout must be > 0")
+		return 2
+	}
+	if crawlDepth < 0 {
+		fmt.Fprintln(stderr, "error: --crawl-depth must be >= 0")
+		return 2
+	}
+	if crawlLimit < 0 {
+		fmt.Fprintln(stderr, "error: --crawl-limit must be >= 0")
+		return 2
+	}
+
+	targets, err := loadTargets(targetURL, listPath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
+		fmt.Fprintln(stderr, "error:", err)
+		return 1
 	}
 	if len(targets) == 0 {
-		fmt.Fprintln(os.Stderr, "error: no targets to scan")
-		os.Exit(2)
+		fmt.Fprintln(stderr, "error: no targets to scan")
+		return 2
 	}
 
 	cfg := scanner.Config{
-		Concurrency: *concurrency,
-		Timeout:     time.Duration(*timeoutSec) * time.Second,
-		UserAgent:   "web-dork-fuzzer (defensive scanner)",
+		Concurrency: concurrency,
+		Timeout:     time.Duration(timeoutSec) * time.Second,
+		UserAgent:   "wdf (defensive exposure scanner)",
 		MaxSnippet:  2048,
 
-		EnableRobots:  *enableRobots,
-		EnableSitemap: *enableSitemap,
-		EnableCrawl:   *enableCrawl,
-		CrawlDepth:    minInt(*crawlDepth, 2),
-		CrawlLimit:    *crawlLimit,
+		EnableRobots:  enableRobots,
+		EnableSitemap: enableSitemap,
+		EnableCrawl:   enableCrawl,
+		CrawlDepth:    clampInt(crawlDepth, 0, 2),
+		CrawlLimit:    crawlLimit,
 	}
 
 	ctx := context.Background()
@@ -90,33 +147,36 @@ func main() {
 	}
 
 	rs := scanner.DefaultRuleSet()
-	results := scanner.ScanTargets(ctx, targets, cfg, rs)
-	rep.Targets = results
+	rep.Targets = scanner.ScanTargets(ctx, targets, cfg, rs)
 
-	var out *os.File
-	if *outputPath == "" {
-		out = os.Stdout
-	} else {
-		f, err := os.Create(*outputPath)
+	var out io.Writer = stdout
+	var f *os.File
+	if output != "" {
+		ff, err := os.Create(output)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+			fmt.Fprintln(stderr, "error:", err)
+			return 1
 		}
+		f = ff
 		defer f.Close()
 		out = f
 	}
 
 	if err := report.WriteJSON(out, rep); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
+		fmt.Fprintln(stderr, "error:", err)
+		return 1
 	}
+	return 0
 }
 
-func minInt(a, b int) int {
-	if a < b {
-		return a
+func clampInt(v, min, max int) int {
+	if v < min {
+		return min
 	}
-	return b
+	if v > max {
+		return max
+	}
+	return v
 }
 
 func loadTargets(single, listPath string) ([]string, error) {
@@ -154,3 +214,4 @@ func loadTargets(single, listPath string) ([]string, error) {
 	sort.Strings(targets)
 	return targets, nil
 }
+

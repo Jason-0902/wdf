@@ -68,7 +68,11 @@ JSON Report (results + severity + recommendations)
 ### Clone and Build
 
 ```bash
+<<<<<<< HEAD
 git clone https://github.com/Jason-0902/wdf.git
+=======
+git clone https://github.com/<your-org-or-user>/wdf.git
+>>>>>>> fe08b4b (Refactor CLI and improve installation workflow)
 cd wdf
 go build -o wdf ./cmd/wdf
 ```

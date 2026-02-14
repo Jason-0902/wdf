@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"wdf/internal/discover"
+	"github.com/Jason-0902/wdf/internal/discover"
 )
 
 type RequestResult struct {

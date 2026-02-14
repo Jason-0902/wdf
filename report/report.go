@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"wdf/internal/scanner"
+	"github.com/Jason-0902/wdf/internal/scanner"
 )
 
 type Report struct {
@@ -19,4 +19,3 @@ func WriteJSON(w io.Writer, r Report) error {
 	enc.SetIndent("", "  ")
 	return enc.Encode(r)
 }
-
