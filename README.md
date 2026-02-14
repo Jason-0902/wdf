@@ -30,7 +30,7 @@ At a high level, wdf builds a target-specific scan plan, executes bounded HTTP r
 Workflow diagram:
 
 ```text
-Targets (-u / -l)
+Targets (-u/--url or -l/--list)
       |
       v
 Normalize Targets
@@ -65,52 +65,43 @@ JSON Report (results + severity + recommendations)
 
 - Go 1.22+ recommended
 
-### Clone and Build
+### Install (Recommended)
+
+Install the latest released version into your `GOBIN`/`GOPATH/bin`:
 
 ```bash
-<<<<<<< HEAD
+go install github.com/Jason-0902/wdf/cmd/wdf@latest
+```
+
+Verify:
+
+```bash
+wdf --version
+```
+
+### Build From Source
+
+```bash
 git clone https://github.com/Jason-0902/wdf.git
-=======
-git clone https://github.com/<your-org-or-user>/wdf.git
->>>>>>> fe08b4b (Refactor CLI and improve installation workflow)
 cd wdf
 go build -o wdf ./cmd/wdf
 ```
 
-### Run
-
-Single target:
-
-```bash
-./wdf -u https://example.com --concurrency 20 --timeout 10 --output results.json
-```
-
-List of targets (one per line; `#` comments supported):
-
-```bash
-./wdf -l targets.txt --concurrency 50 --timeout 15 --output results.json
-```
-
-Enable discovery modules (optional, disabled by default):
-
-```bash
-./wdf -u https://example.com \
-  --enable-robots \
-  --enable-sitemap \
-  --enable-crawl \
-  --crawl-depth 2 \
-  --crawl-limit 20 \
-  --output results.json
-```
-
 ## CLI Usage
+
+### Help and Version
+
+```bash
+wdf --help
+wdf --version
+```
 
 ### Flags
 
-- `-u string`  
+- `-u, --url string`  
   Target URL to scan (e.g. `https://example.com`)
 
-- `-l string`  
+- `-l, --list string`  
   Path to file containing target URLs (one per line)
 
 - `--concurrency int`  
@@ -137,24 +128,42 @@ Enable discovery modules (optional, disabled by default):
 - `--crawl-limit int`  
   Maximum pages fetched per target during crawling
 
+- `--version`  
+  Print version and exit
+
+- `-h, --help`  
+  Print help and exit
+
 ### Examples
 
 Scan a single host with strict timeouts:
 
 ```bash
-./wdf -u https://example.com --concurrency 10 --timeout 5
+wdf --url https://example.com --concurrency 10 --timeout 5 --output results.json
 ```
 
 Scan multiple targets and save output:
 
 ```bash
-./wdf -l targets.txt --concurrency 50 --timeout 15 --output wdf-report.json
+wdf --list targets.txt --concurrency 50 --timeout 15 --output wdf-report.json
 ```
 
 Enable robots + sitemap only (no crawler):
 
 ```bash
-./wdf -u https://example.com --enable-robots --enable-sitemap --output results.json
+wdf -u https://example.com --enable-robots --enable-sitemap --output results.json
+```
+
+Enable all discovery modules:
+
+```bash
+wdf -u https://example.com \
+  --enable-robots \
+  --enable-sitemap \
+  --enable-crawl \
+  --crawl-depth 2 \
+  --crawl-limit 20 \
+  --output results.json
 ```
 
 ## Example Output
@@ -167,7 +176,7 @@ wdf produces a single JSON report containing per-target results. Fields are stab
   "config": {
     "concurrency": 20,
     "timeout": 10000000000,
-    "user_agent": "web-dork-fuzzer (defensive scanner)",
+    "user_agent": "wdf (defensive exposure scanner)",
     "max_snippet": 2048,
     "enable_robots": true,
     "enable_sitemap": true,
@@ -233,7 +242,7 @@ wdf classifies results as High, Medium, or Low based on structured rules and res
 ### Indexability and `noindex`
 
 - If an indexability checker reports the content is indexed, severity is raised to High and `indexed_exposed` is set to `true`.
-- If content is explicitly marked `noindex` (via `X-Robots-Tag: noindex/none` or `<meta name="robots" content="noindex">`), severity is downgraded by one level, but never downgraded for:
+- If content is explicitly marked `noindex` (via `X-Robots-Tag: noindex/none` or `<meta name=\"robots\" content=\"noindex\">`), severity is downgraded by one level, but never downgraded for:
   - directory listings
   - confirmed secret pattern matches
 
@@ -255,5 +264,5 @@ wdf classifies results as High, Medium, or Low based on structured rules and res
 
 ## License
 
-MIT License (placeholder)
+MIT License. See `LICENSE`.
 
