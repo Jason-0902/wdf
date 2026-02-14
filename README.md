@@ -151,7 +151,6 @@ Scan a single host with strict timeouts:
 
 ```bash
 wdf --url https://example.com --concurrency 10 --timeout 5 --output results.json
-<<<<<<< HEAD
 =======
 ```
 
@@ -159,7 +158,6 @@ Pretty output to stdout, JSON to a file:
 
 ```bash
 wdf -u https://example.com --pretty --output results.json
->>>>>>> bc85866 (Add pretty CLI output and improve formatter)
 ```
 
 Scan multiple targets and save output:
