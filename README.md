@@ -97,7 +97,6 @@ wdf --help
 wdf --version
 ```
 
-<<<<<<< HEAD
 =======
 ### Output Modes
 
@@ -105,7 +104,6 @@ wdf --version
 - `--output report.json`: JSON is written to the file (stdout can be used for human output via `--pretty`).
 - `--pretty`: prints a grouped, human-readable report to stdout.
 
->>>>>>> bc85866 (Add pretty CLI output and improve formatter)
 ### Flags
 
 - `-u, --url string`  
