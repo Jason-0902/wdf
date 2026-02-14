@@ -68,7 +68,7 @@ JSON Report (results + severity + recommendations)
 ### Clone and Build
 
 ```bash
-git clone https://github.com/<your-org-or-user>/wdf.git
+git clone https://github.com/Jason-0902/wdf.git
 cd wdf
 go build -o wdf ./cmd/wdf
 ```
