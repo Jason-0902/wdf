@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Jason-0902/wdf/internal/scanner"
+	"github.com/Jason-0902/wdf/formatter"
 	"github.com/Jason-0902/wdf/report"
 )
 
@@ -27,6 +28,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		targetURL string
 		listPath  string
 		output    string
+		pretty    bool
 
 		concurrency int
 		timeoutSec  int
@@ -48,6 +50,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.IntVar(&concurrency, "concurrency", 20, "max concurrent requests")
 	fs.IntVar(&timeoutSec, "timeout", 10, "request timeout in seconds")
 	fs.StringVar(&output, "output", "", "write results JSON to this file (default: stdout)")
+	fs.BoolVar(&pretty, "pretty", false, "print human-readable results to stdout (JSON still written to --output if set)")
 
 	fs.BoolVar(&enableRobots, "enable-robots", false, "enable robots.txt discovery (disabled by default)")
 	fs.BoolVar(&enableSitemap, "enable-sitemap", false, "enable sitemap.xml discovery (disabled by default)")
@@ -127,6 +130,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
+	start := time.Now()
+	fmt.Fprintln(stdout, "[+] Starting scan...")
+	for _, t := range targets {
+		fmt.Fprintf(stdout, "[+] Target: %s\n", t)
+	}
+	fmt.Fprintf(stdout, "[+] Concurrency: %d\n", concurrency)
+	fmt.Fprintf(stdout, "[+] Timeout: %ds\n", timeoutSec)
+	fmt.Fprintln(stdout)
+
 	cfg := scanner.Config{
 		Concurrency: concurrency,
 		Timeout:     time.Duration(timeoutSec) * time.Second,
@@ -149,7 +161,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 	rs := scanner.DefaultRuleSet()
 	rep.Targets = scanner.ScanTargets(ctx, targets, cfg, rs)
 
-	var out io.Writer = stdout
 	var f *os.File
 	if output != "" {
 		ff, err := os.Create(output)
@@ -159,13 +170,23 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		f = ff
 		defer f.Close()
-		out = f
+		if err := report.WriteJSON(f, rep); err != nil {
+			fmt.Fprintln(stderr, "error:", err)
+			return 1
+		}
+	} else if !pretty {
+		// Backward-compatible default: JSON to stdout when --pretty is not enabled.
+		if err := report.WriteJSON(stdout, rep); err != nil {
+			fmt.Fprintln(stderr, "error:", err)
+			return 1
+		}
 	}
 
-	if err := report.WriteJSON(out, rep); err != nil {
-		fmt.Fprintln(stderr, "error:", err)
-		return 1
+	if pretty {
+		formatter.PrintPretty(rep, stdout)
 	}
+
+	fmt.Fprintf(stdout, "\n[+] Scan completed in %.2f seconds\n", time.Since(start).Seconds())
 	return 0
 }
 
@@ -214,4 +235,3 @@ func loadTargets(single, listPath string) ([]string, error) {
 	sort.Strings(targets)
 	return targets, nil
 }
-

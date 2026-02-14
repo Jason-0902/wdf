@@ -16,6 +16,7 @@ wdf is designed for security auditing and exposure assessment. Use it only on sy
 - Secret pattern detection: content-based pattern matching for keys and tokens (e.g., AWS keys, private key headers, common tokens, connection strings)
 - Indexability risk classification: structured severity labels (High / Medium / Low) with indexability signal hooks
 - JSON reporting: machine-readable output suitable for pipelines and dashboards
+- Pretty CLI output (optional): grouped, aligned, human-readable findings (like modern security tooling)
 
 ## How It Works (Architecture)
 
@@ -96,6 +97,15 @@ wdf --help
 wdf --version
 ```
 
+<<<<<<< HEAD
+=======
+### Output Modes
+
+- Default behavior (no `--pretty`, no `--output`): JSON is written to stdout.
+- `--output report.json`: JSON is written to the file (stdout can be used for human output via `--pretty`).
+- `--pretty`: prints a grouped, human-readable report to stdout.
+
+>>>>>>> bc85866 (Add pretty CLI output and improve formatter)
 ### Flags
 
 - `-u, --url string`  
@@ -112,6 +122,9 @@ wdf --version
 
 - `--output string`  
   Write results JSON to this file (default: stdout)
+
+- `--pretty`  
+  Print a grouped, human-readable report to stdout (JSON still written to `--output` if set)
 
 - `--enable-robots`  
   Enable `robots.txt` discovery (disabled by default)
@@ -140,6 +153,15 @@ Scan a single host with strict timeouts:
 
 ```bash
 wdf --url https://example.com --concurrency 10 --timeout 5 --output results.json
+<<<<<<< HEAD
+=======
+```
+
+Pretty output to stdout, JSON to a file:
+
+```bash
+wdf -u https://example.com --pretty --output results.json
+>>>>>>> bc85866 (Add pretty CLI output and improve formatter)
 ```
 
 Scan multiple targets and save output:
@@ -167,6 +189,36 @@ wdf -u https://example.com \
 ```
 
 ## Example Output
+
+### Pretty Output (Example)
+
+```text
+[+] Starting scan...
+[+] Target: https://example.com
+[+] Concurrency: 20
+[+] Timeout: 10s
+
+SCAN TARGET: https://example.com/
+------------------------------------------------------------
+
+[HIGH]
+  /.env                          200   Sensitive config exposed [dictionary]
+
+[MEDIUM]
+  /swagger/index.html            200   Public API documentation [dictionary]
+
+------------------------------------------------------------
+SUMMARY:
+  High: 1
+  Medium: 1
+  Low: 0
+  Total Findings: 2
+  Scan Duration: 3.42s
+
+[+] Scan completed in 3.42 seconds
+```
+
+### JSON Output (Example)
 
 wdf produces a single JSON report containing per-target results. Fields are stable and can be extended over time.
 
@@ -265,4 +317,7 @@ wdf classifies results as High, Medium, or Low based on structured rules and res
 ## License
 
 MIT License. See `LICENSE`.
+<<<<<<< HEAD
 
+=======
+>>>>>>> bc85866 (Add pretty CLI output and improve formatter)
